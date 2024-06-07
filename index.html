@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check-In</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="image-container">
+        <img src="images/CACA.jpg" alt="Image">
+        
+        <input type="number" id="documento" name="documento" placeholder="Digite sua senha">
+        <button id="buscar">Dar Check-In</button>
+        
+    </div>
+    <div></div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js';
+        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.4.0/firebase-analytics.js';
+        import { getFirestore, collection, query, where, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFvOGoxYu4xxivYGHLBXfqO3znJ3uH93Y",
+            authDomain: "senhas-8258c.firebaseapp.com",
+            projectId: "senhas-8258c",
+            storageBucket: "senhas-8258c.appspot.com",
+            messagingSenderId: "710732633621",
+            appId: "1:710732633621:web:ec96dca607f46c07ed201c",
+            measurementId: "G-5CYC76XR2K"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        function fecharPopUp() {
+            let popup = document.querySelector(".popup");
+            if (popup) {
+                popup.remove();
+            }
+        }
+
+        function exibirPopUp(mensagem) {
+            let popup = document.createElement("div");
+            popup.className = "popup";
+            popup.innerHTML = `
+                <p>${mensagem}</p>
+                <button id="popupCloseBtn">OK</button>
+            `;
+            document.body.appendChild(popup);
+            document.getElementById("popupCloseBtn").addEventListener("click", fecharPopUp);
+        }
+
+        async function verificarSenha(senha) {
+            console.log(`Verificando senha: ${senha}`);
+            try {
+                // Verifica se o convidado já está na festa
+                const checkInQuery = query(collection(db, "check-in"), where("senha", "==", Number(senha)));
+                const checkInSnapshot = await getDocs(checkInQuery);
+                if (!checkInSnapshot.empty) {
+                    exibirPopUp("Convidado já na festa!");
+                    return;
+                }
+
+                // Verifica se a senha está na coleção "confirmados"
+                const confirmadosQuery = query(collection(db, "confirmados"), where("senha", "==", Number(senha)));
+                const confirmadosSnapshot = await getDocs(confirmadosQuery);
+                if (!confirmadosSnapshot.empty) {
+                    const batch = writeBatch(db);
+                    confirmadosSnapshot.forEach((docSnapshot) => {
+                        const docData = docSnapshot.data();
+                        const checkInDocRef = doc(db, "check-in", docSnapshot.id);
+                        batch.set(checkInDocRef, docData);
+                        batch.delete(docSnapshot.ref);
+                        exibirPopUp(`Check-in realizado! Seja Bem-Vindo(a): ${docData.nome}`);
+                    });
+                    await batch.commit();
+                } else {
+                    exibirPopUp("Senha não encontrada!");
+                }
+            } catch (error) {
+                console.error("Erro ao verificar a senha:", error);
+            }
+        }
+
+        document.getElementById("buscar").onclick = () => {
+            const senha = document.getElementById("documento").value;
+            verificarSenha(senha);
+        };
+    </script>
+</body>
+</html>
